@@ -1,0 +1,630 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Route Finder</title>
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#0033ff" />
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css"/>
+
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=search" />
+
+    <style>
+      /* Base Styles */
+      body, html { 
+          margin: 0; 
+          padding: 0; 
+          height: 100%; 
+          font-family: 'Google Sans', 'Nunito', Arial, sans-serif;
+          background-color: #f9f9f9;
+          color: #111;
+          overflow: hidden;
+      }
+      
+      #map { 
+          width: 100%; 
+          height: 100vh; 
+          z-index: 0;
+      }
+      
+      /* Floating Action Buttons */
+      .floating-buttons {
+          position: absolute;
+          top: 12px;
+          left: 12px;
+          z-index: 1000;
+          display: flex;
+          flex-direction: column;
+      }
+      
+      .floating-buttons button {
+          background: rgba(255, 255, 255, 0.9);
+          border: none;
+          padding: 12px;
+          margin: 6px 0;
+          border-radius: 50%;
+          cursor: pointer;
+          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+          font-size: 18px;
+          transition: background 0.3s ease;
+      }
+      .floating-buttons button:hover {
+          background: #e0e0e0;
+      }
+      
+      /* Search Bar */
+      .search-bar {
+          position: absolute;
+          top: 10px;
+          left: 50%;
+          transform: translateX(-50%);
+          z-index: 1000;  
+          background: rgba(255, 255, 255, 0.8);
+          backdrop-filter: blur(20px);
+          padding: 10px;
+          border-radius: 60px;
+          display: flex;
+          align-items: center;
+          box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
+          width: 90%;
+          max-width: 500px;
+      }
+      
+      .search-bar input {
+          padding: 10px;
+          flex: 1;
+          border: none;
+          background-color: transparent;
+          outline: none;
+          font-size: 15px;
+          border-radius: 60px;
+          margin-right: 8px;  
+      }
+      
+      .search-bar button {
+          padding: 10px 14px;
+          background: #0033ff;
+          color: white;
+          border: none;
+          cursor: pointer;
+          border-radius: 60px;
+          font-size: 14px;
+          font-weight: 600;
+      }
+      .search-bar button:hover {
+          background: #0022cc;
+      }
+      
+      /* Suggestions Box */
+      .suggestions {
+          position: absolute;
+          background: white;
+          width: 90%;
+          max-width: 500px;
+          max-height: 300px;
+          overflow-y: auto;
+          border-radius: 15px;
+          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+          display: none;
+          z-index: 1001;
+          left: 50%;
+          transform: translateX(-50%);
+      }
+      
+      .suggestions div {
+          padding: 12px 16px;
+          cursor: pointer;
+          font-size: 14px;
+          transition: background 0.2s ease;
+      }
+      .suggestions div:hover {
+          background: #f0f0f0;
+      }
+      
+      /* Route Panel */
+      .route-panel {
+          position: absolute;
+          top: 80px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 90%;
+          max-width: 400px;
+          background: rgba(255, 255, 255, 0.7);
+          backdrop-filter: blur(20px);
+          padding: 15px;
+          border-radius: 20px;
+          box-shadow: 0px 8px 20px rgba(0, 0, 0, 0.15);
+          display: none;
+          z-index: 1000;
+      }
+      
+      .route-panel input, 
+      .route-panel button {
+          width: 100%;
+          padding: 12px;
+          margin: 8px 0;
+          border-radius: 12px;
+          border: 1px solid #ccc;
+          font-size: 14px;
+      }
+      
+      /* Loading Animation */
+      .loading-overlay {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: rgba(255, 255, 255, 0.8);
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          backdrop-filter: blur(5px);
+          z-index: 2000;
+          display: none;
+      }
+      
+      .spinner {
+          width: 50px;
+          height: 50px;
+          border: 5px solid rgba(0, 0, 255, 0.3);
+          border-top: 5px solid #0033ff;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+      }
+      
+      /* Navigation Info Panel */
+      #navigationInfo {
+          position: absolute;
+          z-index: 1999;
+          bottom: 16px;
+          left: 50%;
+          transform: translateX(-50%);
+          background: rgba(255, 255, 255, 0.8);
+          backdrop-filter: blur(30px);
+          color: #000;
+          padding: 10px 16px;
+          border-radius: 12px;
+          text-align: center;
+          font-size: 14px;
+          max-width: 80%;
+          box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+      }
+      
+      /* Start Navigation Button */
+      #startNavigation {
+          margin-top: 10px;
+          padding: 10px 16px;
+          background-color: #007bff;
+          color: white;
+          border: none;
+          border-radius: 10px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: background-color 0.3s ease;
+      }
+      #startNavigation:hover {
+          background-color: #0056b3;
+      }
+      
+      /* Recenter Button (Optional) */
+      #recenter-btn {
+          position: absolute;
+          bottom: 80px;
+          right: 16px;
+          padding: 12px;
+          border-radius: 50%;
+          border: none;
+          background: white;
+          box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+          font-size: 18px;
+          z-index: 999;
+          cursor: pointer;
+      }
+      
+      /* Spinner Animation */
+      @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+      }
+      
+      /* Responsive Adjustments */
+      @media screen and (max-width: 600px) {
+          .floating-buttons {
+              top: auto;
+              bottom: 20px;
+              left: 85%;
+              transform: translateX(-50%);
+              flex-direction: column;
+              gap: 10px;
+          }
+      
+          .floating-buttons button {
+              padding: 16px;
+              font-size: 18px;
+          }
+      
+          .search-bar {
+              width: 82%;
+              max-width: 100%;
+              padding: 8px;
+              top: 10px;
+              left: 55%;
+          }
+      
+          .search-bar input {
+              font-size: 13px;
+          }
+      
+          .suggestions {
+              width: 95%;
+              max-width: 100%;
+              font-size: 13px;
+          }
+      
+          .route-panel {
+              width: 95%;
+              max-width: 100%;
+              top: 72px;
+          }
+      
+          .spinner {
+              width: 40px;
+              height: 40px;
+          }
+      
+          #navigationInfo {
+              bottom: 10px;
+              font-size: 13px;
+              padding: 8px 14px;
+              max-width: 90%;
+          }
+      }
+      </style>      
+</head>
+<body>
+
+      <!-- Loading Animation -->
+      <div id="loadingOverlay" class="loading-overlay">
+        <div class="spinner"></div>
+    </div>
+
+    <div id="map"></div>
+
+    <!-- Floating Buttons -->
+    <div class="floating-buttons">
+        <button onclick="toggleRoutePanel()">📌</button>
+        <button onclick="getLiveLocation()">📍</button>
+    </div>
+
+    <!-- Search Bar -->
+    <div class="search-bar">
+        <input type="text" id="searchInput" placeholder="Search locations..." oninput="showSuggestions(this.value, 'search')">
+        
+        <button onclick="searchLocation()">
+            <span class="material-symbols-outlined">
+            search
+            </span>
+        </button>
+    </div>
+
+    <!-- Route Panel -->
+    <div class="route-panel" id="routePanel">
+        <button onclick="useLiveLocation()">Use Live Location</button>
+        <input type="text" id="startLocation" placeholder="Enter start location" oninput="showSuggestions(this.value, 'start')">
+        <div id="startSuggestions" class="suggestions"></div>
+        <input type="text" id="endLocation" placeholder="Enter destination" oninput="showSuggestions(this.value, 'end')">
+        <div id="endSuggestions" class="suggestions"></div>
+        <button onclick="getRoute()">Find Route</button>
+        <button onclick="toggleRoutePanel()">Close</button>
+    </div>
+
+    <div id="navigationInfo">
+        <p id="distance">Distance: -- km</p>
+        <p id="eta">ETA: -- min</p>
+        <button id="startNavigation" onclick="startNavigation()" style="display:none;">Start Navigation</button>
+    </div>
+    
+    <button id="installButton" style="position: absolute; bottom: 20px; right: 20px; z-index: 3000; padding: 10px 16px; font-size: 14px; border: none; border-radius: 8px; background-color: #0033ff; color: white; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.2); display: block;">
+        Install App
+      </button>
+      
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+    
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", function () {
+          navigator.serviceWorker
+            .register("/service-worker.js")
+            .then((reg) => console.log("Service Worker registered", reg))
+            .catch((err) => console.log("Service Worker failed", err));
+        });
+      }
+    </script>
+    
+    <script>
+        let deferredPrompt;
+        const installButton = document.getElementById('installButton');
+      
+        // Listen for install prompt
+        window.addEventListener('beforeinstallprompt', (e) => {
+          // Prevent the mini-infobar from appearing on mobile
+          e.preventDefault();
+          deferredPrompt = e;
+      
+          // Show the install button only if not already installed
+          if (!window.matchMedia('(display-mode: standalone)').matches) {
+            installButton.style.display = 'block';
+          }
+        });
+      
+        installButton.addEventListener('click', async () => {
+          if (deferredPrompt) {
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+      
+            if (outcome === 'accepted') {
+              console.log('App installed');
+              installButton.style.display = 'none';
+              deferredPrompt = null;
+            } else {
+              console.log('App installation declined');
+            }
+          }
+        });
+      
+        // Hide install button if app is already installed
+        window.addEventListener('appinstalled', () => {
+          console.log('PWA was installed');
+          installButton.style.display = 'none';
+        });
+      
+        // Additional fallback for iOS where beforeinstallprompt isn't available
+        if (window.matchMedia('(display-mode: standalone)').matches) {
+          installButton.style.display = 'none';
+        }
+      </script>
+      
+    
+    <script>
+const ORS_API_KEY = "5b3ce3597851110001cf62484a264622a33048f694b7220a215994ec";
+
+let map = L.map("map").setView([28.7041, 77.1025], 12);
+
+// Minimalistic Map Theme
+L.tileLayer("https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}", {
+}).addTo(map);
+
+let routingControl, userMarker, startCoords = null, endCoords = null;
+let userMovedMap = false, navigationActive = false;
+let distanceLeft = 0, estimatedTime = 0;
+
+// Detect manual zoom/pan changes
+map.on("movestart", () => {
+  userMovedMap = true;
+});
+
+// Show & Hide Loading Animation
+function showLoading(show) {
+  document.getElementById("loadingOverlay").style.display = show ? "flex" : "none";
+}
+
+// Toggle Route Panel
+function toggleRoutePanel() {
+  let panel = document.getElementById("routePanel");
+  panel.style.display = panel.style.display === "block" ? "none" : "block";
+}
+
+// Start Live Navigation
+function startNavigation() {
+  if (!startCoords || !endCoords) return alert("Select both locations first.");
+
+  navigationActive = true;
+  document.getElementById("startNavigation").style.display = "none"; // Hide start button
+
+  navigator.geolocation.watchPosition(
+    (position) => {
+      let lat = position.coords.latitude;
+      let lon = position.coords.longitude;
+
+      if (userMarker) map.removeLayer(userMarker);
+      userMarker = L.marker([lat, lon], { icon: getUserIcon() }).addTo(map).bindPopup("You are here").openPopup();
+
+      if (!userMovedMap) map.setView([lat, lon], 14);
+
+      startCoords = [lon, lat]; // Update live location
+      updateRoute();
+    },
+    (error) => alert("Could not get live location."),
+    { enableHighAccuracy: true }
+  );
+}
+
+// Custom User Marker
+function getUserIcon() {
+  return L.icon({
+    iconUrl: "https://cdn-icons-png.flaticon.com/512/684/684908.png",
+    iconSize: [35, 35]
+  });
+}
+
+// Get Route
+function getRoute() {
+  if (!startCoords || !endCoords) return alert("Select both locations first.");
+
+  showLoading(true);
+
+  if (routingControl) map.removeControl(routingControl);
+
+  routingControl = L.Routing.control({
+    waypoints: [L.latLng(startCoords[1], startCoords[0]), L.latLng(endCoords[1], endCoords[0])],
+    routeWhileDragging: true,
+    createMarker: () => null,
+    lineOptions: { styles: [{ color: "#007bff", weight: 6 }] }
+  }).addTo(map);
+
+  routingControl.on("routesfound", function (e) {
+    let route = e.routes[0];
+    distanceLeft = route.summary.totalDistance / 1000;
+    estimatedTime = Math.round(route.summary.totalTime / 60);
+
+    document.getElementById("distance").innerText = `Distance: ${distanceLeft.toFixed(2)} km`;
+    document.getElementById("eta").innerText = `ETA: ${estimatedTime} min`;
+
+    document.getElementById("startNavigation").style.display = "block"; // Show start button
+    showLoading(false);
+  });
+}
+
+function updateRoute(newLatLng) {
+  if (!currentRouteCoordinates.length) return;
+
+  const destinationLatLng = currentRouteCoordinates[currentRouteCoordinates.length - 1];
+
+  const url = `https://api.openrouteservice.org/v2/directions/foot-walking/geojson`;
+  fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: apiKey,
+    },
+    body: JSON.stringify({
+      coordinates: [
+        [newLatLng.lng, newLatLng.lat], // start from updated location
+        [destinationLatLng.lng, destinationLatLng.lat], // same destination
+      ],
+    }),
+  })
+    .then((response) => response.json())
+    .then((data) => {
+      if (data.routes || data.features) {
+        const coordinates =
+          data.routes?.[0]?.geometry?.coordinates || data.features?.[0]?.geometry?.coordinates;
+
+        const updatedRouteCoords = coordinates.map((coord) => [coord[1], coord[0]]);
+        currentRouteCoordinates = updatedRouteCoords;
+
+        // Update the route layer
+        routeLayer.setLatLngs(updatedRouteCoords);
+
+        // Update voice instruction
+        speak(`Route updated. Distance: ${data.routes?.[0]?.summary?.distance?.toFixed(0) / 1000} km`);
+
+        // Re-center map on new position
+        map.setView(newLatLng, 17);
+      } else {
+        speak("Could not update the route.");
+      }
+    })
+    .catch((error) => {
+      console.error("Error updating route:", error);
+      speak("Error updating route.");
+    });
+}
+
+
+// Use Live Location as Start Point
+function useLiveLocation() {
+  showLoading(true);
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      startCoords = [position.coords.longitude, position.coords.latitude];
+      document.getElementById("startLocation").value = "Your Live Location";
+      showLoading(false);
+    },
+    () => {
+      alert("Could not get location.");
+      showLoading(false);
+    }
+  );
+}
+
+// Show Suggestions & Handle Selection
+function showSuggestions(query, type) {
+  if (!query.trim()) {
+    document.getElementById(type + "Suggestions").style.display = "none";
+    return;
+  }
+
+  showLoading(true);
+
+  fetch(`https://api.openrouteservice.org/geocode/search?api_key=${ORS_API_KEY}&text=${query}`)
+    .then(response => response.json())
+    .then(data => {
+      let suggestionsBox = document.getElementById(type + "Suggestions");
+      suggestionsBox.innerHTML = "";
+      suggestionsBox.style.display = "block";
+
+      data.features.forEach((place) => {
+        let div = document.createElement("div");
+        div.innerText = place.properties.label;
+        div.dataset.lat = place.geometry.coordinates[1];
+        div.dataset.lon = place.geometry.coordinates[0];
+
+        div.onclick = function () {
+          document.getElementById(type + "Location").value = this.innerText;
+          suggestionsBox.style.display = "none";
+
+          let lat = parseFloat(this.dataset.lat);
+          let lon = parseFloat(this.dataset.lon);
+
+          if (type === "start") startCoords = [lon, lat];
+          else if (type === "end") endCoords = [lon, lat];
+
+          map.setView([lat, lon], 14);
+          L.marker([lat, lon]).addTo(map).bindPopup(this.innerText).openPopup();
+        };
+
+        suggestionsBox.appendChild(div);
+      });
+
+      showLoading(false);
+    })
+    .catch((err) => {
+      console.error("Error fetching suggestions:", err);
+      showLoading(false);
+    });
+}
+
+// Search & Move Map
+function searchLocation() {
+  let query = document.getElementById("searchInput").value;
+  if (!query.trim()) return;
+
+  showLoading(true);
+
+  fetch(`https://api.openrouteservice.org/geocode/search?api_key=${ORS_API_KEY}&text=${query}`)
+    .then(response => response.json())
+    .then(data => {
+      if (data.features.length > 0) {
+        let place = data.features[0];
+        let lat = place.geometry.coordinates[1];
+        let lon = place.geometry.coordinates[0];
+
+        map.setView([lat, lon], 14);
+        L.marker([lat, lon]).addTo(map).bindPopup(place.properties.label).openPopup();
+      }
+
+      showLoading(false);
+    })
+    .catch((err) => {
+      console.error("Error searching location:", err);
+      showLoading(false);
+    });
+}
+
+// Start real-time location tracking when the page loads
+trackLiveLocation();
+
+    </script>
+
+</body>
+</html>
